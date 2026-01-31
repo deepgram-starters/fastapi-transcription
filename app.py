@@ -118,9 +118,10 @@ async def transcribe_audio(input_data, model=DEFAULT_MODEL):
     """
     # URL transcription
     if input_data["type"] == "url":
-        response = deepgram.listen.rest.v("1").transcribe_url(
-            {"url": input_data["data"]},
-            {"model": model, "smart_format": True}
+        response = deepgram.listen.v1.media.transcribe_url(
+            url=input_data["data"],
+            model=model,
+            smart_format=True,
         )
         return response
 
@@ -128,9 +129,10 @@ async def transcribe_audio(input_data, model=DEFAULT_MODEL):
     file_obj = input_data["data"]
     file_content = await file_obj.read()
 
-    response = deepgram.listen.rest.v("1").transcribe_file(
-        {"buffer": file_content},
-        {"model": model, "smart_format": True}
+    response = deepgram.listen.v1.media.transcribe_file(
+        request=file_content,
+        model=model,
+        smart_format=True,
     )
     return response
 
