@@ -30,6 +30,12 @@ load_dotenv(override=False)
 # CONFIGURATION
 # ============================================================================
 
+CONFIG = {
+    "port": int(os.environ.get("PORT", 8081)),
+    "host": os.environ.get("HOST", "0.0.0.0"),
+    "frontend_port": int(os.environ.get("FRONTEND_PORT", 8080)),
+}
+
 DEFAULT_MODEL = "nova-3"
 
 # ============================================================================
@@ -70,10 +76,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for all routes
+# Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to your domain
+    allow_origins=[
+        f"http://localhost:{CONFIG['frontend_port']}",
+        f"http://127.0.0.1:{CONFIG['frontend_port']}",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -303,26 +312,15 @@ async def get_metadata():
         )
 
 # ============================================================================
-# FRONTEND SERVING - Mount static files last
-# ============================================================================
-
-# Mount static files (must be last to avoid catching API routes)
-app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
-
-# ============================================================================
 # SERVER START
 # ============================================================================
 
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", 8080))
-    host = os.environ.get("HOST", "0.0.0.0")
-
     print("\n" + "=" * 70)
-    print(f"🚀 FastAPI Transcription Server running at http://localhost:{port}")
-    print(f"📦 Serving built frontend from frontend/dist")
-    print(f"📚 API docs: http://localhost:{port}/docs")
+    print(f"🚀 FastAPI Transcription Server running at http://localhost:{CONFIG['port']}")
+    print(f"📚 API docs: http://localhost:{CONFIG['port']}/docs")
     print("=" * 70 + "\n")
 
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=CONFIG["host"], port=CONFIG["port"])
