@@ -1,4 +1,4 @@
-.PHONY: help check-prereqs init install install-backend install-frontend start-backend start-frontend start update clean status
+.PHONY: help check check-prereqs init install install-backend install-frontend start-backend start-frontend start test update clean status
 
 help:
 	@echo "Available commands:"
@@ -9,17 +9,20 @@ help:
 	@echo "  make start             - Start application (backend + frontend)"
 	@echo "  make start-backend     - Start backend only (port 8081)"
 	@echo "  make start-frontend    - Start frontend only (port 8080)"
+	@echo "  make test              - Run contract conformance tests"
 	@echo "  make update            - Update submodules to latest"
 	@echo "  make clean             - Remove venv, node_modules and build artifacts"
 	@echo "  make status            - Show git and submodule status"
 
-check-prereqs:
+check:
 	@echo "==> Checking prerequisites..."
 	@command -v git >/dev/null 2>&1 || { echo "❌ git is required but not installed. Visit https://git-scm.com"; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { echo "❌ python3 is required but not installed. Visit https://python.org"; exit 1; }
 	@command -v pip3 >/dev/null 2>&1 || { echo "❌ pip3 is required but not installed."; exit 1; }
 	@echo "✓ All prerequisites installed"
 	@echo ""
+
+check-prereqs: check
 
 init: check-prereqs
 	@echo "==> Initializing submodules..."
@@ -33,6 +36,9 @@ init: check-prereqs
 	@echo ""
 	@echo "==> Installing frontend dependencies..."
 	cd frontend && corepack pnpm install
+	@echo ""
+	@echo "==> Installing contracts dependencies..."
+	cd contracts && npm install
 	@echo ""
 	@echo "✓ Project initialized successfully!"
 	@echo ""
@@ -86,6 +92,18 @@ start:
 	@echo "    Frontend: http://localhost:8080"
 	@echo ""
 	@$(MAKE) start-backend & $(MAKE) start-frontend & wait
+
+test:
+	@if [ ! -f ".env" ]; then \
+		echo "❌ Error: .env file not found. Copy sample.env to .env and add your DEEPGRAM_API_KEY"; \
+		exit 1; \
+	fi
+	@if [ ! -d "contracts" ] || [ -z "$$(ls -A contracts)" ]; then \
+		echo "❌ Error: Contracts submodule not initialized. Run 'make init' first."; \
+		exit 1; \
+	fi
+	@echo "==> Running contract conformance tests..."
+	@bash contracts/tests/run-transcription-app.sh
 
 update:
 	@echo "==> Updating submodules..."

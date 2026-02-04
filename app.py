@@ -15,10 +15,12 @@ Key Features:
 
 import os
 from typing import Optional
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from deepgram import DeepgramClient
 from dotenv import load_dotenv
 import toml
@@ -87,6 +89,80 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================================================
+# EXCEPTION HANDLERS
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    Custom exception handler to ensure error responses match the contract format
+    """
+    # If detail is already in the expected format, return it as-is
+    if isinstance(exc.detail, dict) and "error" in exc.detail:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail
+        )
+
+    # Handle form parsing errors on transcribe endpoint
+    if request.url.path == "/stt/transcribe" and exc.status_code == 400:
+        error_msg = str(exc.detail)
+        if "parsing" in error_msg.lower() or "multipart" in error_msg.lower():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": {
+                        "type": "ValidationError",
+                        "code": "INVALID_INPUT",
+                        "message": "Either 'file' or 'url' must be provided"
+                    }
+                }
+            )
+
+    # Otherwise, wrap it in the expected format
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "type": "Error",
+                "code": "ERROR",
+                "message": str(exc.detail)
+            }
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle FastAPI validation errors - including empty form data
+    """
+    # For any validation error on the transcribe endpoint, assume it's missing input
+    # This handles empty forms gracefully
+    if request.url.path == "/stt/transcribe":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "type": "ValidationError",
+                    "code": "INVALID_INPUT",
+                    "message": "Either 'file' or 'url' must be provided"
+                }
+            }
+        )
+
+    # For other endpoints, return generic validation error
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": {
+                "type": "ValidationError",
+                "code": "INVALID_INPUT",
+                "message": "Invalid request"
+            }
+        }
+    )
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -241,6 +317,10 @@ async def transcribe(
         )
 
         return JSONResponse(content=formatted_response, status_code=200)
+
+    except HTTPException:
+        # Re-raise HTTPExceptions without modification
+        raise
 
     except ValueError as e:
         # Validation errors (400)
