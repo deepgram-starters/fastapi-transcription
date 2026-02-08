@@ -6,7 +6,7 @@ powered by Deepgram's Speech-to-Text service. It's designed to be easily
 modified and extended for your own projects.
 
 Key Features:
-- Single API endpoint: POST /stt/transcribe
+- Single API endpoint: POST /api/transcription
 - Accepts both file uploads and URLs
 - Async/await for better performance
 - Automatic OpenAPI docs at /docs
@@ -35,7 +35,6 @@ load_dotenv(override=False)
 CONFIG = {
     "port": int(os.environ.get("PORT", 8081)),
     "host": os.environ.get("HOST", "0.0.0.0"),
-    "frontend_port": int(os.environ.get("FRONTEND_PORT", 8080)),
 }
 
 DEFAULT_MODEL = "nova-3"
@@ -81,11 +80,7 @@ app = FastAPI(
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        f"http://localhost:{CONFIG['frontend_port']}",
-        f"http://127.0.0.1:{CONFIG['frontend_port']}",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -107,7 +102,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         )
 
     # Handle form parsing errors on transcribe endpoint
-    if request.url.path == "/stt/transcribe" and exc.status_code == 400:
+    if request.url.path == "/api/transcription" and exc.status_code == 400:
         error_msg = str(exc.detail)
         if "parsing" in error_msg.lower() or "multipart" in error_msg.lower():
             return JSONResponse(
@@ -140,7 +135,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """
     # For any validation error on the transcribe endpoint, assume it's missing input
     # This handles empty forms gracefully
-    if request.url.path == "/stt/transcribe":
+    if request.url.path == "/api/transcription":
         return JSONResponse(
             status_code=400,
             content={
@@ -272,14 +267,14 @@ def format_transcription_response(transcription_response, model_name):
 # API ROUTES
 # ============================================================================
 
-@app.post("/stt/transcribe")
+@app.post("/api/transcription")
 async def transcribe(
     file: Optional[UploadFile] = File(None),
     url: Optional[str] = Form(None),
     model: str = Form(DEFAULT_MODEL)
 ):
     """
-    POST /stt/transcribe
+    POST /api/transcription
 
     Main transcription endpoint. Accepts either:
     - A file upload (multipart/form-data with 'file' field)
@@ -401,6 +396,9 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print(f"🚀 FastAPI Transcription Server running at http://localhost:{CONFIG['port']}")
     print(f"📚 API docs: http://localhost:{CONFIG['port']}/docs")
+    print("\nAPI Routes:")
+    print(f"  POST /api/transcription - Transcribe audio file or URL")
+    print(f"  GET  /api/metadata - Get application metadata")
     print("=" * 70 + "\n")
 
     uvicorn.run(app, host=CONFIG["host"], port=CONFIG["port"])
