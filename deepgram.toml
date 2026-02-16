@@ -6,7 +6,7 @@ repository = "https://github.com/deepgram-starters/fastapi-transcription"
 useCase = "transcription"
 language = "python"
 framework = "fastapi"
-sdk = "5.3.2"
+sdk = "6.0.0-rc.1"
 tags = ["transcription", "stt", "speech-to-text", "asr", "pre-recorded", "python", "fastapi"]
 
 [install.pre]
